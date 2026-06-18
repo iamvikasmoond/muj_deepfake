@@ -64,13 +64,6 @@ Transfer learning is used: ResNext50 weights are frozen (pretrained on ImageNet)
 
 All videos are preprocessed — face-only crops extracted from raw videos.
 
-### Download Preprocessed Data
-
-| Dataset | Link |
-|---------|------|
-| Celeb-DF Fake | [Google Drive](https://drive.google.com/drive/folders/1SxCb_Wr7N4Wsc-uvjUl0i-6PpwYmwN65) |
-| Celeb-DF Real | [Google Drive](https://drive.google.com/drive/folders/1g97v9JoD3pCKA2TxHe8ZLRe4buX2siCQ) |
-| FaceForensics++ | [Google Drive](https://drive.google.com/drive/folders/1VIIWRLs6VBXRYKODgeOU7i6votLPPxT0) |
 
 Labels: `Model Creation/labels/Gobal_metadata.csv`
 
