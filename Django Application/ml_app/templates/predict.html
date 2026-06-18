@@ -1,110 +1,429 @@
 {% extends 'base.html' %}
 {% load static %}
 {%block content%}
-{%if no_faces%}
-<div class="container">
-  <div class="logo text-center mb-3"><img src="{% static 'images/logo1.png'%}" alt="Logo" ></div>
-  <hr />
-  <div class="alert alert-danger">
-    No faces detected. Cannot process the video.
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #ECEEF2; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif; }
+.navbar, header { display: none !important; }
+
+.page-body {
+  min-height: calc(100vh - 72px);
+  padding: 32px;
+  padding-bottom: 100px;
+}
+
+/* Top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.topbar-shield {
+  width: 32px; height: 32px; background: #EFF6FF; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.topbar-shield svg { width: 16px; height: 16px; color: #3B82F6; }
+.topbar-title { font-size: 20px; font-weight: 700; color: #111; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.time-tag { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6B7280; }
+.time-tag svg { width: 14px; height: 14px; }
+.analyze-another {
+  background: #111; color: #fff; border: none; border-radius: 12px;
+  padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; text-decoration: none;
+  transition: background 0.2s;
+}
+.analyze-another:hover { background: #333; color: #fff; }
+.analyze-another svg { width: 15px; height: 15px; }
+
+/* Main layout */
+.main-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Result panel */
+.result-panel {
+  background: #fff; border-radius: 24px; padding: 28px;
+  border: 1px solid #F3F4F6;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  position: sticky; top: 20px;
+}
+
+.ring-wrap { position: relative; width: 130px; height: 130px; margin-bottom: 18px; }
+.ring-wrap svg { transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: #F3F4F6; stroke-width: 10; }
+.ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1); }
+.ring-real { stroke: #22C55E; }
+.ring-fake { stroke: #EF4444; }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-pct { font-size: 24px; font-weight: 700; color: #111; line-height: 1; }
+.ring-sub { font-size: 10px; color: #9CA3AF; margin-top: 3px; }
+
+.result-title { font-size: 20px; font-weight: 700; color: #111; margin-bottom: 10px; }
+.result-title .real { color: #22C55E; }
+.result-title .fake { color: #EF4444; }
+
+.result-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 500; margin-bottom: 18px;
+}
+.badge-real { background: #F0FDF4; color: #16A34A; }
+.badge-fake { background: #FEF2F2; color: #DC2626; }
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+.badge-real .badge-dot { background: #22C55E; }
+.badge-fake .badge-dot { background: #EF4444; }
+
+.result-desc { font-size: 12px; color: #6B7280; line-height: 1.6; margin-bottom: 20px; }
+
+.metrics { width: 100%; }
+.metric-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid #F9FAFB;
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-left { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #6B7280; }
+.metric-left svg { width: 13px; height: 13px; flex-shrink: 0; }
+.metric-val { font-size: 12px; font-weight: 600; }
+.v-green { color: #22C55E; }
+.v-red { color: #EF4444; }
+.v-dark { color: #111; }
+
+/* Right column */
+.right-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.card {
+  background: #fff; border-radius: 20px; padding: 22px;
+  border: 1px solid #F3F4F6; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.card-header { display: contents; align-items: center; gap: 8px; margin-bottom: 14px; }
+.card-icon { width: 26px; height: 26px; background: #F9FAFB; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-icon svg { width: 13px; height: 13px; color: #6B7280; }
+.card-title { font-size: 14px; font-weight: 600; color: #111; }
+
+/* Frames scroll */
+.frames-row {
+  display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 6px; flex-wrap: nowrap;
+}
+.frames-row::-webkit-scrollbar { height: 3px; }
+.frames-row::-webkit-scrollbar-track { background: #F9FAFB; border-radius: 2px; }
+.frames-row::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
+.frame-item { flex-shrink: 0; width: 96px; height: 72px; border-radius: 10px; overflow: hidden; border: 1.5px solid #F3F4F6; }
+.frame-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Bottom row */
+.bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Video */
+.video-container { border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 16/9; }
+.video-container video { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* Info list */
+.info-list { display: flex; flex-direction: column; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid #F9FAFB; }
+.info-row:last-child { border-bottom: none; }
+.info-key { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9CA3AF; }
+.info-key svg { width: 12px; height: 12px; flex-shrink: 0; }
+.info-value { font-size: 12px; font-weight: 500; color: #111; text-align: right; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* No faces */
+.no-faces {
+  background: #fff; border-radius: 24px; padding: 48px; text-align: center;
+  max-width: 420px; margin: 60px auto; border: 1px solid #F3F4F6;
+}
+.no-faces-icon { width: 56px; height: 56px; background: #FEF2F2; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.no-faces-icon svg { width: 28px; height: 28px; color: #EF4444; }
+.no-faces h3 { font-size: 17px; font-weight: 600; color: #111; margin-bottom: 8px; }
+.no-faces p { font-size: 13px; color: #6B7280; margin-bottom: 24px; }
+.back-btn { display: inline-flex; align-items: center; gap: 8px; background: #111; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+
+/* Bottom nav */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 72px;
+  background: #fff; border-top: 1px solid #F3F4F6;
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 0 16px; z-index: 100;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.04);
+}
+.nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #9CA3AF; text-decoration: none; transition: color 0.2s; }
+.nav-item.active { color: #111; }
+.nav-item svg { width: 20px; height: 20px; }
+.nav-label { font-size: 10px; font-weight: 500; }
+
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .result-panel { position: static; }
+  .bottom-row { grid-template-columns: 1fr; }
+  .page-body { padding: 16px; padding-bottom: 90px; }
+}
+</style>
+
+<div class="page-body">
+
+{% if no_faces %}
+<div class="no-faces">
+  <div class="no-faces-icon">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+  </div>
+  <h3>No Faces Detected</h3>
+  <p>We couldn't detect any faces in the uploaded video. Please try a video with clearly visible faces.</p>
+  <a href="{% url 'ml_app:home' %}" class="back-btn">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+    Try Another Video
+  </a>
+</div>
+
+{% else %}
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-shield">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    </div>
+    <span class="topbar-title">Analysis Results</span>
+  </div>
+  <div class="topbar-right">
+    <div class="time-tag">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"/></svg>
+      Analysis complete
+    </div>
+    <a href="{% url 'ml_app:home' %}" class="analyze-another">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35"/></svg>
+      Analyze Another
+    </a>
   </div>
 </div>
-{%else%}
-<div class="container">
-  <div class="logo text-center mb-3"><img src="{% static 'images/logo1.png'%}" alt="Logo" ></div>
-  <hr />
 
-  <h3>Frames Split</h3>
-  <div id="preprocessed_images" class="col-12 mt-4 mb-2">
-    {% for each_image in preprocessed_images %}
-    <img src="{%static each_image%}" class="preprocess" width=auto height="250" />
-    {%endfor%}
+<div class="main-grid">
+  <!-- Left: Result panel (sticky) -->
+  <div class="result-panel">
+    <div class="ring-wrap">
+      <svg viewBox="0 0 130 130" width="130" height="130">
+        <circle class="ring-bg" cx="65" cy="65" r="55"/>
+        <circle class="ring-fill {% if output == 'REAL' %}ring-real{% else %}ring-fake{% endif %}"
+          cx="65" cy="65" r="55"
+          stroke-dasharray="345.4"
+          stroke-dashoffset="345.4"
+          id="ring-circle"/>
+      </svg>
+      <div class="ring-center">
+        <div class="ring-pct" id="ring-pct">0%</div>
+        <div class="ring-sub">Confidence</div>
+      </div>
+    </div>
+
+    <div class="result-title">
+      Result: <span class="{% if output == 'REAL' %}real{% else %}fake{% endif %}">{{output}}</span>
+    </div>
+
+    {% if output == "REAL" %}
+    <div class="result-badge badge-real"><div class="badge-dot"></div>No manipulation detected</div>
+    <div class="result-desc">The analyzed video appears to be authentic with no signs of AI manipulation.</div>
+    {% else %}
+    <div class="result-badge badge-fake"><div class="badge-dot"></div>Manipulation detected</div>
+    <div class="result-desc">The analyzed video shows signs of AI-generated or deepfake manipulation.</div>
+    {% endif %}
+
+    <div class="metrics">
+      <div class="metric-row">
+        <div class="metric-left">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Confidence Score
+        </div>
+        <span class="metric-val {% if output == 'REAL' %}v-green{% else %}v-red{% endif %}">{{confidence}}%</span>
+      </div>
+      <div class="metric-row">
+        <div class="metric-left">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Manipulation Signals
+        </div>
+        <span class="metric-val {% if output == 'REAL' %}v-green{% else %}v-red{% endif %}">{% if output == 'REAL' %}Low{% else %}High{% endif %}</span>
+      </div>
+      <div class="metric-row">
+        <div class="metric-left">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Face Detections
+        </div>
+        <span class="metric-val v-dark">{{ faces_cropped_images|length }}</span>
+      </div>
+      <div class="metric-row">
+        <div class="metric-left">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+          Architecture
+        </div>
+        <span class="metric-val v-dark">ResNext50+LSTM</span>
+      </div>
+    </div>
   </div>
 
+  <!-- Right column -->
+  <div class="right-col">
 
-  <h3>Face Cropped Frames</h3>
-  <div id="faces_images" class="col-12 mb-2">
-    {% for each_image in faces_cropped_images %}
-    <img src="{%static each_image%}" class="faces" width=auto height="150" />
-    {%endfor%}
-  </div>
+    {% if preprocessed_images %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        <span class="card-title">Frames Split</span>
+      </div>
+      <div class="frames-row">
+        {% for img in preprocessed_images %}
+        <div class="frame-item"><img src="{% static img %}" alt="frame"></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
-  <div class="result text-center">
-    <h3>Play to see Result</h3>
-    <video height="320" width="640" id="predict-media" controls>
-      <source src="{{MEDIA_URL}}{{original_video}}" type="video/mp4" codecs="avc1.4d002a" />
-    </video>
-    {%if output == "REAL" %}
-    <h4 class="mx-auto">Result: <span style="color:green">{{output}}</span>
-      <img src="{% static 'images/thumpup.png'%}" alt="real" height="100px" width=auto>
-      {%else%}
-      <h4 class="mx-auto">Result: <span style="color:red">{{output}}</span>
-        <img src="{% static 'images/thumpdown.png'%}" alt="fake" height="100px" width=auto >
-      {%endif%}
-  </div>
-<!--
-  <h3>Heat Maps</h3>
-  <div id="heatmap_images" class="col-12 mb-4 ">
-    {% for each_heatmap_image in heatmap_images %}
-    <img src="{%static each_heatmap_image%}" class="heat-map" width="100" height="150" />
-    {%endfor%}
+    {% if faces_cropped_images %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <span class="card-title">Detected Faces (Cropped)</span>
+      </div>
+      <div class="frames-row">
+        {% for img in faces_cropped_images %}
+        <div class="frame-item"><img src="{% static img %}" alt="face"></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="bottom-row">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <span class="card-title">Original Video</span>
+        </div>
+        <div class="video-container">
+          <video controls>
+            <source src="/media/{{original_video}}">
+          </video>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <span class="card-title">Video Information</span>
+        </div>
+        <div class="info-list">
+          <div class="info-row">
+            <div class="info-key">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              File Name
+            </div>
+            <div class="info-value">{{original_video}}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-key">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4"/></svg>
+              Total Frames
+            </div>
+            <div class="info-value">{{ preprocessed_images|length }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-key">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Face Detections
+            </div>
+            <div class="info-value">{{ faces_cropped_images|length }}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-key">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              Model Accuracy
+            </div>
+            <div class="info-value">87%</div>
+          </div>
+          <div class="info-row">
+            <div class="info-key">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+              Dataset
+            </div>
+            <div class="info-value">Celeb-DF</div>
+          </div>
+          <div class="info-row">
+            <div class="info-key">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+              Architecture
+            </div>
+            <div class="info-value">ResNext50 + LSTM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
--->
-{%endif%}
+{% endif %}
+</div>
+
+<!-- Bottom Nav -->
+<!-- <nav class="bottom-nav">
+  <a class="nav-item" href="{% url 'ml_app:home' %}">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    <span class="nav-label">Home</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+    <span class="nav-label">Search</span>
+  </a>
+  <a class="nav-item active" href="#">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+    <span class="nav-label">Dashboard</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+    <span class="nav-label">Messages</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+    <span class="nav-label">Profile</span>
+  </a>
+  <a class="nav-item" href="#">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    <span class="nav-label">Settings</span>
+  </a>
+  <a class="nav-item" href="#" id="theme-toggle">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+    <span class="nav-label">Theme</span>
+  </a>
+</nav> -->
+
 {%endblock%}
 {%block js_cripts%}
-<script src="{%static 'js/face-api.min.js'%}"></script>
 <script>
-  $(document).ready(function () {
-    const video = document.getElementById("predict-media");
+const confidence = {{ confidence }};
+const circumference = 345.4;
+const offset = circumference - (confidence / 100) * circumference;
+const circle = document.getElementById('ring-circle');
+const pctEl = document.getElementById('ring-pct');
 
-    Promise.all([
-    faceapi.nets.ssdMobilenetv1.loadFromUri('/static/json'),
-      faceapi.nets.tinyFaceDetector.loadFromUri("/static/json")
-      
-    ])
-
-    var detectionTimeout;
-    video.addEventListener("playing", () => {
-      var canvas;
-      if ($('canvas').length < 1) {
-        canvas = faceapi.createCanvasFromMedia(video);
-        canvas.style.top = video.offsetTop + "px";
-        canvas.style.left = video.offsetLeft + "px";
-        document.body.append(canvas);
-      }
-      /* In order to be able to pause the video */
-      const displaySize = { width: video.width, height: video.height - 60 };
-      faceapi.matchDimensions(canvas, displaySize);
-
-      detectionTimeout = setInterval(async () => {
-        const detections = await faceapi.detectAllFaces(video);
-        const resizedDetections = faceapi.resizeResults(detections, displaySize);
-        canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
-        canvas.style.top = video.offsetTop + "px";
-        canvas.style.left = video.offsetLeft + "px";
-        resizedDetections.forEach((result, i) => {
-          console.log(resizedDetections[i].box);
-          var result = '{{output}}';
-          var confidence = '{{confidence}}';
-          var drawOptions = {label: result.concat("  " , confidence , "%")};
-          if (result == 'REAL'){
-            drawOptions["boxColor"] = "#0f0";
-          }
-          else if (result == 'FAKE'){
-            drawOptions["boxColor"] = "#f00";
-          }
-          var box = { x: resizedDetections[i].box.x, y: resizedDetections[i].box.y, height: 100, width: 100 };
-          const drawBox = new faceapi.draw.DrawBox(box, drawOptions);
-          drawBox.draw(canvas);
-        });
-      }, 1);
-    });
-
-    video.addEventListener("paused", () => {
-      clearTimeout(detectionTimeout);
-    });
-  })
+if (circle) {
+  setTimeout(() => { circle.style.strokeDashoffset = offset; }, 100);
+}
+if (pctEl) {
+  let start = 0;
+  const target = Math.round(confidence * 10) / 10;
+  const step = target / 60;
+  const timer = setInterval(() => {
+    start += step;
+    if (start >= target) { start = target; clearInterval(timer); }
+    pctEl.textContent = start.toFixed(1) + '%';
+  }, 16);
+}
 </script>
 {%endblock%}

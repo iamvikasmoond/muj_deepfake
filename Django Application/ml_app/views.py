@@ -32,10 +32,12 @@ mean=[0.485, 0.456, 0.406]
 std=[0.229, 0.224, 0.225]
 sm = nn.Softmax()
 inv_normalize =  transforms.Normalize(mean=-1*np.divide(mean,std),std=np.divide([1,1,1],std))
-if torch.cuda.is_available():
-    device = 'gpu'
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+elif torch.cuda.is_available():
+    device = torch.device("cuda")
 else:
-    device = 'cpu'
+    device = torch.device("cpu")
 
 train_transforms = transforms.Compose([
                                         transforms.ToPILImage(),
@@ -279,13 +281,12 @@ def predict_page(request):
         video_dataset = validation_dataset(path_to_videos, sequence_length=sequence_length, transform=train_transforms)
 
         # Load model
-        if(device == "gpu"):
-            model = Model(2).cuda()  # Adjust the model instantiation according to your model structure
-        else:
-            model = Model(2).cpu()  # Adjust the model instantiation according to your model structure
-        model_name = os.path.join(settings.PROJECT_DIR, 'models', get_accurate_model(sequence_length))
-        path_to_model = os.path.join(settings.PROJECT_DIR, model_name)
-        model.load_state_dict(torch.load(path_to_model, map_location=torch.device('cpu')))
+        model = Model(2).to(device)
+        # model_name = os.path.join(settings.PROJECT_DIR, 'models', get_accurate_model(sequence_length))
+        # path_to_model = os.path.join(settings.PROJECT_DIR, model_name)
+        path_to_model = get_accurate_model(sequence_length)
+        # model.load_state_dict(torch.load(path_to_model, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(path_to_model, map_location=device))
         model.eval()
         start_time = time.time()
         # Display preprocessing images
